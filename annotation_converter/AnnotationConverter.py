@@ -8,6 +8,9 @@ from annotation_converter.Polygon import Polygon
 from annotation_converter.Annotation import Annotation
 
 
+# import matplotlib.pyplot as plt
+
+
 class AnnotationConverter:
     @staticmethod
     def write_cvat(annotations, annotation_file):
@@ -66,6 +69,7 @@ class AnnotationConverter:
                                     ET.SubElement(new_label, "name").text = label
                                     ET.SubElement(new_label, "attributes")
                                 return root
+
     @staticmethod
     def extend_cvat(ann, path_to_annotation_file):
         if not os.path.isfile(path_to_annotation_file):
@@ -133,14 +137,17 @@ class AnnotationConverter:
         return annotation
 
     @staticmethod
-    def read_from_mask(label, mask_folder):
+    def read_from_mask(label, mask_folder, black_on_white_objects=False, threshold=1):
         mask_paths = glob.glob(mask_folder)
         mask_paths.sort()
         annotations = []
         for mask_path in mask_paths:
             rgb_mask = cv2.imread(mask_path)
             gray_image = cv2.cvtColor(rgb_mask, cv2.COLOR_BGR2GRAY)
-            ret, thresh = cv2.threshold(gray_image, 1, 255, cv2.THRESH_BINARY)
+            if black_on_white_objects:
+                # opencv expects masks to be white objects on black background, so negate the image here
+                gray_image = ~gray_image
+            ret, thresh = cv2.threshold(gray_image, threshold, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
             pol_list = []
             for contour in contours:
@@ -196,3 +203,76 @@ class AnnotationConverter:
             annotations.append(Annotation(img_name, img_width, img_height, bb_list, pol_list))
 
         return annotations
+
+    @staticmethod
+    def mask_to_coco(mask_folder, annotation_file, label):
+        annotations = AnnotationConverter.read_from_mask(label, mask_folder)
+        AnnotationConverter.write_coco(annotations, annotation_file)
+
+    @staticmethod
+    def write_coco(annotations, annotation_file, category_id=1):
+        """ All annotations are currently given the same label.
+            Use category_id to specify which id the label has
+            so it can be used with existing annotation files. """
+        root = AnnotationConverter._init_coco()
+        annotation_id = 0
+        for image_id, annotation in enumerate(annotations):
+            image_info = {
+                'id': image_id,
+                'dataset_id': 1,
+                'category_ids': [category_id],
+                'width': annotation.get_img_width(),
+                'height': annotation.get_img_height(),
+                'file_name': annotation.get_image_name(),
+                'annotated': True,
+                'num_annotations': len(annotation.get_polygons()),
+            }
+            root['images'].append(image_info)
+            for polygon in annotation.get_polygons():
+                label = polygon.get_label()
+                if label not in [cat['name'] for cat in root['categories']]:
+                    root['categories'].append({
+                        'id': category_id,
+                        'name': label,
+                        'supercategory': ''
+                    })
+                # get_polygon_points_as_array returns int32s (from numpy) which has to be converted to
+                # python ints before they are JSON serializable. The same has to be done for the bounding boxes.
+                bbox = [  # note: can be moved to read_from_mask()
+                    min(polygon.get_polygon_points()['y']),  # start x of bbx
+                    min(polygon.get_polygon_points()['x']),  # start y of bbx
+                    max(polygon.get_polygon_points()['y']) - min(polygon.get_polygon_points()['y']),  # width of bbx
+                    max(polygon.get_polygon_points()['x']) - min(polygon.get_polygon_points()['x']),  # height of bbx
+                ]
+                segmentation = [int(xy) for point in polygon.get_polygon_points_as_array() for xy in point]
+                annotation_info = {
+                    'id': annotation_id,
+                    'image_id': image_id,
+                    'category_id': category_id,
+                    'segmentation': [segmentation],
+                    'area': float(cv2.contourArea(polygon.get_polygon_points_as_array())),
+                    'bbox': [int(b) for b in bbox],  # convert again to make sure it's the right type
+                    'iscrowd': False,
+                    'isbbox': False,
+                }
+                root['annotations'].append(annotation_info)
+                annotation_id += 1
+        with open(annotation_file, 'w') as f:
+            json.dump(root, f)
+
+    @staticmethod
+    def _init_coco(info=None, licenses=None, categories=None):
+        info = {} if info is None else info
+        licenses = [] if licenses is None else licenses
+        categories = [] if categories is None else categories
+        assert info is not None
+        assert licenses is not None
+        assert categories is not None
+        root = {
+            'info': info,
+            'licenses': licenses,
+            'categories': categories,
+            'images': [],
+            'annotations': []
+        }
+        return root
