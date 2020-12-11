@@ -8,9 +8,6 @@ from annotation_converter.Polygon import Polygon
 from annotation_converter.Annotation import Annotation
 
 
-# import matplotlib.pyplot as plt
-
-
 class AnnotationConverter:
     @staticmethod
     def write_cvat(annotations, annotation_file):
