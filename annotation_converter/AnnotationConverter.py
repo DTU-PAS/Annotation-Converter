@@ -1,6 +1,7 @@
 import glob
 import cv2
 import json
+import numpy as np
 import os
 import xml.etree.cElementTree as ET
 from annotation_converter.BoundingBox import BoundingBox
@@ -163,6 +164,17 @@ class AnnotationConverter:
     def mask_to_cvat(mask_folder, annotation_file, label):
         annotations = AnnotationConverter.read_from_mask(label, mask_folder)
         AnnotationConverter.write_cvat(annotations, annotation_file)
+
+    @staticmethod
+    def get_mask(annotation, label_list, width, height, color=(255, 255, 255)):
+        mask = np.zeros((width, height, 3), dtype=np.uint8)
+        if annotation is not None:
+            polygons = annotation.get_polygons()
+            for pol in polygons:
+                if pol.get_label() not in label_list:
+                    continue
+                cv2.fillPoly(mask, pts=[pol.get_polygon_points_as_array()], color=color)
+        return mask
 
     @staticmethod
     def supervisely_to_cvat(path_to_supervisely_annotations, cvat_save_folder):
