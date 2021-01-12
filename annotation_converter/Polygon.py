@@ -1,4 +1,7 @@
 import numpy as np
+import cv2
+from annotation_converter.BoundingBox import BoundingBox
+
 class Polygon:
     def __init__(self, label):
         self.points = {"x": [], "y": []}
@@ -24,3 +27,8 @@ class Polygon:
 
     def get_label(self):
         return self.label
+
+    def to_bounding_box(self):
+        cnt = np.transpose(np.array([self.points["x"], self.points["y"]]))
+        x, y, w, h = cv2.boundingRect(cnt)
+        return BoundingBox(self.label, x, y, w, h)
