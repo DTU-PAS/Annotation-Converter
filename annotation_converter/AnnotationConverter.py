@@ -15,7 +15,7 @@ class AnnotationConverter:
         labels = []
         root = AnnotationConverter._init_cvat([])
         for annotation in annotations:
-            image = ET.SubElement(root, "image", name="%s" % (annotation.get_image_name().replace(".png", ".jpg")),
+            image = ET.SubElement(root, "image", name="%s" % (annotation.get_image_name()),
                                   id="0",
                                   width="%s" % annotation.get_img_width(), height="%s" % annotation.get_img_height())
             polygon_list = annotation.get_polygons()
@@ -29,9 +29,16 @@ class AnnotationConverter:
                     poly_string += "%f, %f;" % (x, y)
                 poly_string = poly_string[:-1]
                 ET.SubElement(image, "polygon", label=label, points=poly_string, occluded="0", z_order="1")
+            bb_list = annotation.get_bounding_boxes()
+            for bb in bb_list:
+                label = bb.get_label()
+                if label not in labels:
+                    labels.append(label)
+                ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()), xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+
         AnnotationConverter._add_label_to_cvat(root, labels)
         tree = ET.ElementTree(root)
-        tree.write(f"{annotation_file}")
+        tree.write("%s"%annotation_file)
 
     @staticmethod
     def _init_cvat(label_list):
@@ -69,6 +76,55 @@ class AnnotationConverter:
                                 return root
 
     @staticmethod
+    def remove_cvat(ann, path_to_annotation_file):
+        if os.path.isfile(path_to_annotation_file):
+            root = ET.parse(path_to_annotation_file).getroot()
+            img_id = ann.get_image_name()
+
+            image = None
+            for img in root.findall('image'):
+                if img_id == img.attrib["name"]:
+                    image = img
+                    break
+            if image == None:
+                return
+            polygon_anns = ann.get_polygons()
+            if polygon_anns:
+                labels = []
+                for polygon_ann in polygon_anns:
+                    label = polygon_ann.get_label()
+                    if label not in labels:
+                        labels.append(label)
+                    polygon_pts = polygon_ann.get_polygon_points_as_array()
+                    poly_string = ""
+                    for point in polygon_pts:
+                        # Keeping cvat format
+                        x = point[0]
+                        y = point[1]
+                        poly_string += "%f, %f;" % (x, y)
+                    poly_string = poly_string[:-1]
+                    for ann in img.findall('polygon'):
+                        if label == ann.attrib["label"] and poly_string == ann.attrib["points"]:
+                            img.remove(ann)
+
+            bb_list = ann.get_bounding_boxes()
+            labels = []
+            for bb in bb_list:
+                label = bb.get_label()
+                if label not in labels:
+                    labels.append(label)
+                for ann in img.findall('box'):
+                    if label == ann.attrib["label"] and \
+                            str(bb.get_x()) == ann.attrib["xtl"] and \
+                            str(bb.get_y()) == ann.attrib["ytl"] and \
+                            str(bb.get_x() + bb.get_width()) == ann.attrib["xbr"] and \
+                            str(bb.get_y() + bb.get_height()) == ann.attrib["ybr"]:
+                        img.remove(ann)
+            tree = ET.ElementTree(root)
+            tree.write(path_to_annotation_file)
+
+
+    @staticmethod
     def extend_cvat(ann, path_to_annotation_file):
         if not os.path.isfile(path_to_annotation_file):
             # ToDo: Automatically extract all labels in annotations
@@ -76,9 +132,17 @@ class AnnotationConverter:
             root = AnnotationConverter._init_cvat([])
         else:
             root = ET.parse(path_to_annotation_file).getroot()
-        image = ET.SubElement(root, "image", name="%s" % (ann.get_image_name()), id="0",
-                              width="%s" % ann.get_img_width(),
-                              height="%s" % ann.get_img_height())
+        img_id = ann.get_image_name()
+
+        image = None
+        for img in root.findall('image'):
+            if img_id == img.attrib["name"]:
+                image = img
+                break
+        if image == None:
+            image = ET.SubElement(root, "image", name="%s" % (ann.get_image_name()), id="0",
+                                  width="%s" % ann.get_img_width(),
+                                  height="%s" % ann.get_img_height())
         polygon_anns = ann.get_polygons()
         if polygon_anns:
             labels = []
@@ -96,6 +160,17 @@ class AnnotationConverter:
                 poly_string = poly_string[:-1]
                 ET.SubElement(image, "polygon", label=label, points=poly_string, occluded="0", z_order="1")
             root = AnnotationConverter._add_label_to_cvat(root, labels)
+
+        bb_list = ann.get_bounding_boxes()
+        labels = []
+        for bb in bb_list:
+            label = bb.get_label()
+            if label not in labels:
+                labels.append(label)
+            ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()),
+                          xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+        root = AnnotationConverter._add_label_to_cvat(root, labels)
+
         tree = ET.ElementTree(root)
         tree.write(path_to_annotation_file)
 
@@ -116,7 +191,7 @@ class AnnotationConverter:
                 if img_id == img.attrib["name"]:
                     annotation = AnnotationConverter._cvat_to_annotation(img)
                     return annotation
-        except FileNotFoundError:
+        except (FileNotFoundError, ET.ParseError):
             return None
 
     @staticmethod
@@ -131,7 +206,11 @@ class AnnotationConverter:
                 points_str = points_str.split(",")
                 polygon_ann.add_point(int(float(points_str[0])), int(float(points_str[1])))
             polygon_list.append(polygon_ann)
-        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, None, polygon_list)
+        bb_list = []
+        for bb in img_xml_info.findall("box"):
+            bb_ann = BoundingBox(bb.attrib["label"], int(bb.attrib["xtl"]), int(bb.attrib["ytl"]), int(bb.attrib["xbr"]) - int(bb.attrib["xtl"]), int(bb.attrib["ybr"]) - int(bb.attrib["ytl"]))
+            bb_list.append(bb_ann)
+        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list)
         return annotation
 
     @staticmethod
@@ -183,7 +262,7 @@ class AnnotationConverter:
 
     @staticmethod
     def read_from_supervisely(path_to_annotation_folder):
-        annotation_files = glob.glob(f"{path_to_annotation_folder}/*json")
+        annotation_files = glob.glob("%s/*json"%path_to_annotation_folder)
         annotations = []
         for annotation_file in annotation_files:
             bb_list = []

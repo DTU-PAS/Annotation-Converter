@@ -18,5 +18,8 @@ class Annotation:
     def get_bounding_boxes(self):
         return self.bb_list
 
+    def add_bounding_box(self, bb):
+        self.bb_list.append(bb)
+
     def get_polygons(self):
         return self.polygon_list
