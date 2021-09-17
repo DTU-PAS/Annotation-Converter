@@ -208,7 +208,7 @@ class AnnotationConverter:
             polygon_list.append(polygon_ann)
         bb_list = []
         for bb in img_xml_info.findall("box"):
-            bb_ann = BoundingBox(bb.attrib["label"], int(bb.attrib["xtl"]), int(bb.attrib["ytl"]), int(bb.attrib["xbr"]) - int(bb.attrib["xtl"]), int(bb.attrib["ybr"]) - int(bb.attrib["ytl"]))
+            bb_ann = BoundingBox(bb.attrib["label"], int(float(bb.attrib["xtl"])), int(float(bb.attrib["ytl"])), int(float(bb.attrib["xbr"]) - float(bb.attrib["xtl"])), int(float(bb.attrib["ybr"]) - float(bb.attrib["ytl"])))
             bb_list.append(bb_ann)
         annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list)
         return annotation
