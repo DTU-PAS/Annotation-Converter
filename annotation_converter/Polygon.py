@@ -7,6 +7,14 @@ class Polygon:
         self.points = {"x": [], "y": []}
         self.label = label
 
+    def equals(self, pol):
+        if pol.get_label() != self.label:
+            return False
+        points = pol.get_polygon_points()
+        if points["x"] != self.points["x"] or points["y"] != self.points["y"]:
+            return False
+        return True
+
     def get_polygon_points_as_array(self):
         return np.transpose(np.array([self.points["x"], self.points["y"]]))
 

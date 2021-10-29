@@ -20,6 +20,20 @@ class Annotation:
 
     def add_bounding_box(self, bb):
         self.bb_list.append(bb)
+    
+    def remove_bounding_box(self, bb):
+        x, y, w, h = bb_i.get_x(), bb_t.get_y(), bb_i.get_width(), bb_i.get_height()
+        for i, bb_i in enumerate(self.bb_list):
+            x_i, y_i, w_i, h_i = bb_i.get_x(), bb_t.get_y(), bb_i.get_width(), bb_i.get_height()
+            if x == x_i and y == y_i and w == w_i and h == h_i:
+                self.remove_bounding_box_at_index(i)
+                break
+
+    def remove_bounding_box_at_index(self, i):
+        del self.bb_list[i]
+        
+    def add_polygon(self, pol):
+        self.polygon_list.append(pol)
 
     def get_polygons(self):
         return self.polygon_list
