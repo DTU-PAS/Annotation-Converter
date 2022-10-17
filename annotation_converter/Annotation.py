@@ -1,10 +1,11 @@
 class Annotation:
-    def __init__(self, image_location, img_width, img_height, bb_list, polygon_list):
+    def __init__(self, image_location, img_width, img_height, bb_list=[], polygon_list=[], ellipse_list=[]):
         self.image_name = image_location
         self.img_width = img_width
         self.img_height = img_height
         self.bb_list = bb_list
         self.polygon_list = polygon_list
+        self.ellipse_list = ellipse_list
 
     def get_image_name(self):
         return self.image_name
@@ -17,6 +18,12 @@ class Annotation:
 
     def get_bounding_boxes(self):
         return self.bb_list
+
+    def add_ellipse(self, ellipse):
+        self.ellipse_list.append(ellipse)
+
+    def get_ellipses(self):
+        return self.ellipse_list
 
     def add_bounding_box(self, bb):
         self.bb_list.append(bb)
