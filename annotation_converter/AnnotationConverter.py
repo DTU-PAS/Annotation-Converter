@@ -5,6 +5,7 @@ import numpy as np
 import os
 import xml.etree.cElementTree as ET
 from annotation_converter.BoundingBox import BoundingBox
+from annotation_converter.Ellipse import Ellipse
 from annotation_converter.Polygon import Polygon
 from annotation_converter.Annotation import Annotation
 
@@ -35,6 +36,12 @@ class AnnotationConverter:
                 if label not in labels:
                     labels.append(label)
                 ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()), xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+            ellipse_list = annotation.get_ellipses()
+            for el in ellipse_list:
+                label = bb.get_label()
+                if label not in labels:
+                    labels.append(label)
+                ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_r_width), ry=str(el.get_r_height()), occluded="0", z_order="1", source="manual")
 
         AnnotationConverter._add_label_to_cvat(root, labels)
         tree = ET.ElementTree(root)
@@ -169,6 +176,16 @@ class AnnotationConverter:
                 labels.append(label)
             ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()),
                           xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+
+        ellipse_list = ann.get_ellipses()
+        labels = []
+        for el in ellipse_list:
+            label = el.get_label()
+            if label not in labels:
+                labels.append(label)
+            ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_r_width()),
+                          ry=str(el.get_r_height()), occluded="0", z_order="1", source="manual")
+
         root = AnnotationConverter._add_label_to_cvat(root, labels)
 
         tree = ET.ElementTree(root)
@@ -210,6 +227,10 @@ class AnnotationConverter:
         for bb in img_xml_info.findall("box"):
             bb_ann = BoundingBox(bb.attrib["label"], int(float(bb.attrib["xtl"])), int(float(bb.attrib["ytl"])), int(float(bb.attrib["xbr"]) - float(bb.attrib["xtl"])), int(float(bb.attrib["ybr"]) - float(bb.attrib["ytl"])))
             bb_list.append(bb_ann)
+        ellipse_list = []
+        for el in img_xml_info.findall("ellipse"):
+            el_ann = Ellipse(bb.attrib["label"], int(float(el.attrib["cx"])), int(float(el.attrib["cy"])), int(float(el.attrib["rx"])), int(float(el.attrib["ry"])))
+
         annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list)
         return annotation
 
