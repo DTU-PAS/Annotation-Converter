@@ -41,7 +41,7 @@ class AnnotationConverter:
                 label = bb.get_label()
                 if label not in labels:
                     labels.append(label)
-                ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_r_width), ry=str(el.get_r_height()), occluded="0", z_order="1", source="manual")
+                ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_width), ry=str(el.get_height()), occluded="0", z_order="1", source="manual")
 
         AnnotationConverter._add_label_to_cvat(root, labels)
         tree = ET.ElementTree(root)
@@ -83,10 +83,10 @@ class AnnotationConverter:
                                 return root
 
     @staticmethod
-    def remove_cvat(ann, path_to_annotation_file):
+    def remove_cvat(annotation, path_to_annotation_file):
         if os.path.isfile(path_to_annotation_file):
             root = ET.parse(path_to_annotation_file).getroot()
-            img_id = ann.get_image_name()
+            img_id = annotation.get_image_name()
 
             image = None
             for img in root.findall('image'):
@@ -95,7 +95,7 @@ class AnnotationConverter:
                     break
             if image == None:
                 return
-            polygon_anns = ann.get_polygons()
+            polygon_anns = annotation.get_polygons()
             if polygon_anns:
                 labels = []
                 for polygon_ann in polygon_anns:
@@ -114,7 +114,7 @@ class AnnotationConverter:
                         if label == ann.attrib["label"] and poly_string == ann.attrib["points"]:
                             img.remove(ann)
 
-            bb_list = ann.get_bounding_boxes()
+            bb_list = annotation.get_bounding_boxes()
             labels = []
             for bb in bb_list:
                 label = bb.get_label()
@@ -126,6 +126,19 @@ class AnnotationConverter:
                             str(bb.get_y()) == ann.attrib["ytl"] and \
                             str(bb.get_x() + bb.get_width()) == ann.attrib["xbr"] and \
                             str(bb.get_y() + bb.get_height()) == ann.attrib["ybr"]:
+                        img.remove(ann)
+            ell_list = annotation.get_ellipses()
+            labels = []
+            for ell in ell_list:
+                label = ell.get_label()
+                if label not in labels:
+                    labels.append(label)
+                for ann in img.findall('ellipse'):
+                    if label == ann.attrib["label"] and \
+                            str(ell.get_x()) == ann.attrib["cx"] and \
+                            str(ell.get_y()) == ann.attrib["cy"] and \
+                            str(ell.get_width()) == ann.attrib["rx"] and \
+                            str(ell.get_height()) == ann.attrib["ry"]:
                         img.remove(ann)
             tree = ET.ElementTree(root)
             tree.write(path_to_annotation_file)
@@ -183,8 +196,8 @@ class AnnotationConverter:
             label = el.get_label()
             if label not in labels:
                 labels.append(label)
-            ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_r_width()),
-                          ry=str(el.get_r_height()), occluded="0", z_order="1", source="manual")
+            ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_width()),
+                          ry=str(el.get_height()), occluded="0", z_order="1", source="manual")
 
         root = AnnotationConverter._add_label_to_cvat(root, labels)
 
@@ -229,9 +242,9 @@ class AnnotationConverter:
             bb_list.append(bb_ann)
         ellipse_list = []
         for el in img_xml_info.findall("ellipse"):
-            el_ann = Ellipse(bb.attrib["label"], int(float(el.attrib["cx"])), int(float(el.attrib["cy"])), int(float(el.attrib["rx"])), int(float(el.attrib["ry"])))
-
-        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list)
+            el_ann = Ellipse(el.attrib["label"], int(float(el.attrib["cx"])), int(float(el.attrib["cy"])), int(float(el.attrib["rx"])), int(float(el.attrib["ry"])))
+            ellipse_list.append(el_ann)
+        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list, ellipse_list)
         return annotation
 
     @staticmethod

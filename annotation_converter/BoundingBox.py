@@ -20,3 +20,18 @@ class BoundingBox:
 
     def get_label(self):
         return self.label
+
+    def set_label(self, label):
+        self.label = label
+
+    def get_xywh(self):
+        return self.x, self.y, self.width, self.height
+
+    def get_lefttop_rightbottom(self):
+        return round(self.x), round(self.y), round(self.x + self.width), round(self.y + self.height)
+
+    def set_lefttop_rightbottom(self, x1, y1, x2, y2):
+        self.width = int(x2 - x1)
+        self.height = int(y2 - y1)
+        self.x = int(x1)
+        self.y = int(y1)
