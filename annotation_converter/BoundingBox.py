@@ -28,10 +28,10 @@ class BoundingBox:
         return self.x, self.y, self.width, self.height
 
     def get_lefttop_rightbottom(self):
-        return round(self.x), round(self.y), round(self.x + self.width), round(self.y + self.height)
+        return self.x, self.y, self.x + self.width, self.y + self.height
 
     def set_lefttop_rightbottom(self, x1, y1, x2, y2):
-        self.width = int(x2 - x1)
-        self.height = int(y2 - y1)
-        self.x = int(x1)
-        self.y = int(y1)
+        self.width = x2 - x1
+        self.height = y2 - y1
+        self.x = x1
+        self.y = y1
