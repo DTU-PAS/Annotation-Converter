@@ -36,13 +36,9 @@ class BoundingBox:
 
     # Assuming rotation is 0, ToDo: add rotation
     def get_lefttop_rightbottom(self):
-<<<<<<< HEAD
         x2 = self.x + self.width
         y2 = self.y + self.height
         return self.x, self.y, x2, y2
-=======
-        return self.x, self.y, self.x + self.width, self.y + self.height
->>>>>>> ellipse_annotation
 
     # Assuming rotation is 0, ToDo: add rotation
     def set_lefttop_rightbottom(self, x1, y1, x2, y2):

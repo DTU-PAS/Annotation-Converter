@@ -66,7 +66,7 @@ class AnnotationConverter:
         for se in root:
             if se.tag == "meta":
                 for sse in se:
-                    if sse.tag == "task":
+                    if sse.tag == "task" or sse.tag == "job":
                         for ssse in sse:
                             if ssse.tag == "labels":
                                 existing_labels = []
@@ -189,6 +189,7 @@ class AnnotationConverter:
                 labels.append(label)
             ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()),
                           xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
+        root = AnnotationConverter._add_label_to_cvat(root, labels)
 
         ellipse_list = ann.get_ellipses()
         labels = []
