@@ -35,7 +35,7 @@ class AnnotationConverter:
                 label = bb.get_label()
                 if label not in labels:
                     labels.append(label)
-                ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()), xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+                ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()), xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
             ellipse_list = annotation.get_ellipses()
             for el in ellipse_list:
                 label = bb.get_label()
@@ -188,7 +188,7 @@ class AnnotationConverter:
             if label not in labels:
                 labels.append(label)
             ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()),
-                          xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), occluded="0", z_order="1", source="manual")
+                          xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
 
         ellipse_list = ann.get_ellipses()
         labels = []
@@ -238,7 +238,12 @@ class AnnotationConverter:
             polygon_list.append(polygon_ann)
         bb_list = []
         for bb in img_xml_info.findall("box"):
-            bb_ann = BoundingBox(bb.attrib["label"], int(float(bb.attrib["xtl"])), int(float(bb.attrib["ytl"])), int(float(bb.attrib["xbr"]) - float(bb.attrib["xtl"])), int(float(bb.attrib["ybr"]) - float(bb.attrib["ytl"])))
+            rot = 0
+            try:
+                rot = float(bb.attrib["rotation"])
+            except:
+                pass
+            bb_ann = BoundingBox(bb.attrib["label"], int(float(bb.attrib["xtl"])), int(float(bb.attrib["ytl"])), int(float(bb.attrib["xbr"]) - float(bb.attrib["xtl"])), int(float(bb.attrib["ybr"]) - float(bb.attrib["ytl"])), rot)
             bb_list.append(bb_ann)
         ellipse_list = []
         for el in img_xml_info.findall("ellipse"):
