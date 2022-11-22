@@ -1,9 +1,9 @@
 class BoundingBox:
     def __init__(self, label, x, y, width, height):
-        self.x = int(x)
-        self.y = int(y)
-        self.width = int(width)
-        self.height = int(height)
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
         self.label = label
 
     def get_x(self):
