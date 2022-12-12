@@ -8,9 +8,62 @@ from annotation_converter.BoundingBox import BoundingBox
 from annotation_converter.Ellipse import Ellipse
 from annotation_converter.Polygon import Polygon
 from annotation_converter.Annotation import Annotation
+from annotation_converter.Polyline import Polyline
 
 
 class AnnotationConverter:
+
+    @staticmethod
+    def _write_ellipse_cvat(image, annotation, labels):
+        ellipse_list = annotation.get_ellipses()
+        for el in ellipse_list:
+            label = el.get_label()
+            if label not in labels:
+                labels.append(label)
+            ET.SubElement(image, "ellipse", label=label, cx=str(round(el.get_x())), cy=str(round(el.get_y())),
+                          rx=str(round(el.get_width)), ry=str(round(el.get_height())), occluded="0", z_order="1",
+                          source="manual")
+        return image, labels
+    @staticmethod
+    def _write_polygon_cvat(image, annotation, labels):
+        polygon_list = annotation.get_polygons()
+        for poly in polygon_list:
+            label = poly.get_label()
+            if label not in labels:
+                labels.append(label)
+            points = poly.get_polygon_points()
+            poly_string = ""
+            for x, y in zip(points["x"], points["y"]):
+                poly_string += "%f, %f;" % (x, y)
+            poly_string = poly_string[:-1]
+            ET.SubElement(image, "polygon", label=label, points=poly_string, occluded="0", z_order="1")
+        return image, labels
+    @staticmethod
+    def _write_polyline_cvat(image, annotation, labels):
+        polyline_list = annotation.get_polylines()
+        for poly in polyline_list:
+            label = poly.get_label()
+            if label not in labels:
+                labels.append(label)
+            points = poly.get_polyline_points()
+            poly_string = ""
+            for x, y in zip(points["x"], points["y"]):
+                poly_string += "%f, %f;" % (x, y)
+            poly_string = poly_string[:-1]
+            ET.SubElement(image, "polyline", label=label, points=poly_string, occluded="0", z_order="1")
+        return image, labels
+    @staticmethod
+    def _write_bb_cvat(image, annotation, labels):
+        bb_list = annotation.get_bounding_boxes()
+        for bb in bb_list:
+            label = bb.get_label()
+            if label not in labels:
+                labels.append(label)
+            ET.SubElement(image, "box", label=label, xtl=str(round(bb.get_x())), ytl=str(round(bb.get_y())),
+                          xbr=str(round(bb.get_x() + bb.get_width())), ybr=str(round(bb.get_y() + bb.get_height())),
+                          rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
+        return image, labels
+
     @staticmethod
     def write_cvat(annotations, annotation_file):
         labels = []
@@ -19,33 +72,43 @@ class AnnotationConverter:
             image = ET.SubElement(root, "image", name="%s" % (annotation.get_image_name()),
                                   id="0",
                                   width="%s" % annotation.get_img_width(), height="%s" % annotation.get_img_height())
-            polygon_list = annotation.get_polygons()
-            for poly in polygon_list:
-                label = poly.get_label()
-                if label not in labels:
-                    labels.append(label)
-                points = poly.get_polygon_points()
-                poly_string = ""
-                for x, y in zip(points["x"], points["y"]):
-                    poly_string += "%f, %f;" % (x, y)
-                poly_string = poly_string[:-1]
-                ET.SubElement(image, "polygon", label=label, points=poly_string, occluded="0", z_order="1")
-            bb_list = annotation.get_bounding_boxes()
-            for bb in bb_list:
-                label = bb.get_label()
-                if label not in labels:
-                    labels.append(label)
-                ET.SubElement(image, "box", label=label, xtl=str(round(bb.get_x())), ytl=str(round(bb.get_y())), xbr=str(round(bb.get_x() + bb.get_width())), ybr=str(round(bb.get_y() + bb.get_height())), rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
-            ellipse_list = annotation.get_ellipses()
-            for el in ellipse_list:
-                label = bb.get_label()
-                if label not in labels:
-                    labels.append(label)
-                ET.SubElement(image, "ellipse", label=label, cx=str(round(el.get_x())), cy=str(round(el.get_y())), rx=str(round(el.get_width)), ry=str(round(el.get_height())), occluded="0", z_order="1", source="manual")
+            image, labels = AnnotationConverter._write_polygon_cvat(image, annotation, labels)
+            image, labels = AnnotationConverter._write_bb_cvat(image, annotation, labels)
+            image, labels = AnnotationConverter._write_ellipse_cvat(image, annotation, labels)
+            image, labels = AnnotationConverter._write_polyline_cvat(image, annotation, labels)
 
         AnnotationConverter._add_label_to_cvat(root, labels)
         tree = ET.ElementTree(root)
         tree.write("%s"%annotation_file)
+
+    @staticmethod
+    def extend_cvat(annotation, path_to_annotation_file):
+        if not os.path.isfile(path_to_annotation_file):
+            # ToDo: Automatically extract all labels in annotations
+            os.makedirs(os.path.dirname(path_to_annotation_file), exist_ok=True)
+            root = AnnotationConverter._init_cvat([])
+        else:
+            root = ET.parse(path_to_annotation_file).getroot()
+        img_id = annotation.get_image_name()
+
+        image = None
+        for img in root.findall('image'):
+            if img_id == img.attrib["name"]:
+                image = img
+                break
+        if image == None:
+            image = ET.SubElement(root, "image", name="%s" % (ann.get_image_name()), id="0",
+                                  width="%s" % ann.get_img_width(),
+                                  height="%s" % ann.get_img_height())
+        labels = []
+        image, labels = AnnotationConverter._write_polygon_cvat(image, annotation, labels)
+        image, labels = AnnotationConverter._write_bb_cvat(image, annotation, labels)
+        image, labels = AnnotationConverter._write_ellipse_cvat(image, annotation, labels)
+        image, labels = AnnotationConverter._write_polyline_cvat(image, annotation, labels)
+
+        root = AnnotationConverter._add_label_to_cvat(root, labels)
+        tree = ET.ElementTree(root)
+        tree.write(path_to_annotation_file)
 
     @staticmethod
     def _init_cvat(label_list):
@@ -83,6 +146,71 @@ class AnnotationConverter:
                                 return root
 
     @staticmethod
+    def _remove_cvat_image_polygon(image, annotation):
+        polygon_anns = annotation.get_polygons()
+        if polygon_anns:
+            for polygon_ann in polygon_anns:
+                label = polygon_ann.get_label()
+                polygon_pts = polygon_ann.get_polygon_points_as_array()
+                poly_string = ""
+                for point in polygon_pts:
+                    # Keeping cvat format
+                    x = point[0]
+                    y = point[1]
+                    poly_string += "%f, %f;" % (x, y)
+                poly_string = poly_string[:-1]
+                for ann in image.findall('polygon'):
+                    if label == ann.attrib["label"] and poly_string == ann.attrib["points"]:
+                        image.remove(ann)
+        return image
+
+    @staticmethod
+    def _remove_cvat_image_polyline(image, annotation):
+        polyline_anns = annotation.get_polylines()
+        if polyline_anns:
+            for polyline_ann in polyline_anns:
+                label = polyline_ann.get_label()
+                polyline_pts = polyline_ann.get_polygon_points_as_array()
+                poly_string = ""
+                for point in polyline_pts:
+                    # Keeping cvat format
+                    x = point[0]
+                    y = point[1]
+                    poly_string += "%f, %f;" % (x, y)
+                poly_string = poly_string[:-1]
+                for ann in image.findall('polyline'):
+                    if label == ann.attrib["label"] and poly_string == ann.attrib["points"]:
+                        image.remove(ann)
+        return image
+
+    @staticmethod
+    def _remove_cvat_image_bb(image, annotation):
+        bb_list = annotation.get_bounding_boxes()
+        for bb in bb_list:
+            label = bb.get_label()
+            for ann in image.findall('box'):
+                if label == ann.attrib["label"] and \
+                        round(bb.get_x()) == round(float(ann.attrib["xtl"])) and \
+                        round(bb.get_y()) == round(float(ann.attrib["ytl"])) and \
+                        round(bb.get_x() + bb.get_width()) == round(float(ann.attrib["xbr"])) and \
+                        round(bb.get_y() + bb.get_height()) == round(float(ann.attrib["ybr"])):
+                    image.remove(ann)
+        return image
+    @staticmethod
+    def _remove_cvat_image_ellipse(image, annotation):
+        ell_list = annotation.get_ellipses()
+        for ell in ell_list:
+            label = ell.get_label()
+            for ann in image.findall('ellipse'):
+                if label == ann.attrib["label"] and \
+                        round(ell.get_x()) == round(float(ann.attrib["cx"])) and \
+                        round(ell.get_y()) == round(float(ann.attrib["cy"])) and \
+                        round(ell.get_width()) == round(float(ann.attrib["rx"])) and \
+                        round(ell.get_height()) == round(float(ann.attrib["ry"])):
+                    image.remove(ann)
+        return image
+
+    @staticmethod
     def remove_cvat(annotation, path_to_annotation_file):
         if os.path.isfile(path_to_annotation_file):
             root = ET.parse(path_to_annotation_file).getroot()
@@ -95,115 +223,15 @@ class AnnotationConverter:
                     break
             if image == None:
                 return
-            polygon_anns = annotation.get_polygons()
-            if polygon_anns:
-                labels = []
-                for polygon_ann in polygon_anns:
-                    label = polygon_ann.get_label()
-                    if label not in labels:
-                        labels.append(label)
-                    polygon_pts = polygon_ann.get_polygon_points_as_array()
-                    poly_string = ""
-                    for point in polygon_pts:
-                        # Keeping cvat format
-                        x = point[0]
-                        y = point[1]
-                        poly_string += "%f, %f;" % (x, y)
-                    poly_string = poly_string[:-1]
-                    for ann in img.findall('polygon'):
-                        if label == ann.attrib["label"] and poly_string == ann.attrib["points"]:
-                            img.remove(ann)
-
-            bb_list = annotation.get_bounding_boxes()
-            labels = []
-            for bb in bb_list:
-                label = bb.get_label()
-                if label not in labels:
-                    labels.append(label)
-                for ann in img.findall('box'):
-                    if label == ann.attrib["label"] and \
-                            round(bb.get_x()) == round(float(ann.attrib["xtl"])) and \
-                            round(bb.get_y()) == round(float(ann.attrib["ytl"])) and \
-                            round(bb.get_x() + bb.get_width()) == round(float(ann.attrib["xbr"])) and \
-                            round(bb.get_y() + bb.get_height()) == round(float(ann.attrib["ybr"])):
-                        img.remove(ann)
-            ell_list = annotation.get_ellipses()
-            labels = []
-            for ell in ell_list:
-                label = ell.get_label()
-                if label not in labels:
-                    labels.append(label)
-                for ann in img.findall('ellipse'):
-                    if label == ann.attrib["label"] and \
-                            round(ell.get_x()) == round(float(ann.attrib["cx"])) and \
-                            round(ell.get_y()) == round(float(ann.attrib["cy"])) and \
-                            round(ell.get_width()) == round(float(ann.attrib["rx"])) and \
-                            round(ell.get_height()) == round(float(ann.attrib["ry"])):
-                        img.remove(ann)
+            image = AnnotationConverter._remove_cvat_image_polygon(image, annotation)
+            image = AnnotationConverter._remove_cvat_image_bb(image, annotation)
+            image = AnnotationConverter._remove_cvat_image_ellipse(image, annotation)
+            image = AnnotationConverter._remove_cvat_image_polyline(image, annotation)
             tree = ET.ElementTree(root)
             tree.write(path_to_annotation_file)
 
 
-    @staticmethod
-    def extend_cvat(ann, path_to_annotation_file):
-        if not os.path.isfile(path_to_annotation_file):
-            # ToDo: Automatically extract all labels in annotations
-            os.makedirs(os.path.dirname(path_to_annotation_file), exist_ok=True)
-            root = AnnotationConverter._init_cvat([])
-        else:
-            root = ET.parse(path_to_annotation_file).getroot()
-        img_id = ann.get_image_name()
 
-        image = None
-        for img in root.findall('image'):
-            if img_id == img.attrib["name"]:
-                image = img
-                break
-        if image == None:
-            image = ET.SubElement(root, "image", name="%s" % (ann.get_image_name()), id="0",
-                                  width="%s" % ann.get_img_width(),
-                                  height="%s" % ann.get_img_height())
-        polygon_anns = ann.get_polygons()
-        if polygon_anns:
-            labels = []
-            for polygon_ann in polygon_anns:
-                label = polygon_ann.get_label()
-                if label not in labels:
-                    labels.append(label)
-                polygon_pts = polygon_ann.get_polygon_points_as_array()
-                poly_string = ""
-                for point in polygon_pts:
-                    # Keeping cvat format
-                    x = point[0]
-                    y = point[1]
-                    poly_string += "%f, %f;" % (x, y)
-                poly_string = poly_string[:-1]
-                ET.SubElement(image, "polygon", label=label, points=poly_string, occluded="0", z_order="1")
-            root = AnnotationConverter._add_label_to_cvat(root, labels)
-
-        bb_list = ann.get_bounding_boxes()
-        labels = []
-        for bb in bb_list:
-            label = bb.get_label()
-            if label not in labels:
-                labels.append(label)
-            ET.SubElement(image, "box", label=label, xtl=str(bb.get_x()), ytl=str(bb.get_y()),
-                          xbr=str(bb.get_x() + bb.get_width()), ybr=str(bb.get_y() + bb.get_height()), rotation=str(bb.get_rotation()), occluded="0", z_order="1", source="manual")
-        root = AnnotationConverter._add_label_to_cvat(root, labels)
-
-        ellipse_list = ann.get_ellipses()
-        labels = []
-        for el in ellipse_list:
-            label = el.get_label()
-            if label not in labels:
-                labels.append(label)
-            ET.SubElement(image, "ellipse", label=label, cx=str(el.get_x()), cy=str(el.get_y()), rx=str(el.get_width()),
-                          ry=str(el.get_height()), occluded="0", z_order="1", source="manual")
-
-        root = AnnotationConverter._add_label_to_cvat(root, labels)
-
-        tree = ET.ElementTree(root)
-        tree.write(path_to_annotation_file)
 
     @staticmethod
     def read_cvat_all(path_to_annotation_file):
@@ -225,10 +253,7 @@ class AnnotationConverter:
         except (FileNotFoundError, ET.ParseError):
             return None
 
-    @staticmethod
-    def _cvat_to_annotation(img_xml_info):
-        img_width = float(img_xml_info.attrib["width"])
-        img_height = float(img_xml_info.attrib["height"])
+    def _cvat_to_annotation_polygon(img_xml_info):
         polygon_list = []
         for pol in img_xml_info.findall("polygon"):
             polygon_ann = Polygon(pol.attrib["label"])
@@ -237,6 +262,20 @@ class AnnotationConverter:
                 points_str = points_str.split(",")
                 polygon_ann.add_point(int(float(points_str[0])), int(float(points_str[1])))
             polygon_list.append(polygon_ann)
+        return polygon_list
+
+    def _cvat_to_annotation_polyline(img_xml_info):
+        polyline_list = []
+        for pol in img_xml_info.findall("polyline"):
+            polyline_ann = Polyline(pol.attrib["label"])
+            points_strs = pol.attrib["points"].split(";")
+            for points_str in points_strs:
+                points_str = points_str.split(",")
+                polyline_ann.add_point(int(float(points_str[0])), int(float(points_str[1])))
+            polyline_list.append(polyline_ann)
+        return polyline_list
+
+    def _cvat_to_annotation_bb(img_xml_info):
         bb_list = []
         for bb in img_xml_info.findall("box"):
             rot = 0
@@ -244,13 +283,31 @@ class AnnotationConverter:
                 rot = float(bb.attrib["rotation"])
             except:
                 pass
-            bb_ann = BoundingBox(bb.attrib["label"], float(bb.attrib["xtl"]), float(bb.attrib["ytl"]), float(bb.attrib["xbr"]) - float(bb.attrib["xtl"]), float(bb.attrib["ybr"]) - float(bb.attrib["ytl"]), rot)
+            bb_ann = BoundingBox(bb.attrib["label"], float(bb.attrib["xtl"]), float(bb.attrib["ytl"]),
+                                 float(bb.attrib["xbr"]) - float(bb.attrib["xtl"]),
+                                 float(bb.attrib["ybr"]) - float(bb.attrib["ytl"]), rot)
             bb_list.append(bb_ann)
+        return bb_list
+
+    def _cvat_to_annotation_ellipse(img_xml_info):
         ellipse_list = []
         for el in img_xml_info.findall("ellipse"):
             el_ann = Ellipse(el.attrib["label"], float(el.attrib["cx"]), float(el.attrib["cy"]), float(el.attrib["rx"]), float(el.attrib["ry"]))
             ellipse_list.append(el_ann)
-        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list, ellipse_list)
+        return ellipse_list
+
+    @staticmethod
+    def _cvat_to_annotation(img_xml_info):
+        img_width = float(img_xml_info.attrib["width"])
+        img_height = float(img_xml_info.attrib["height"])
+
+        bb_list = AnnotationConverter._cvat_to_annotation_bb(img_xml_info)
+        polygon_list = AnnotationConverter._cvat_to_annotation_polygon(img_xml_info)
+        ellipse_list = AnnotationConverter._cvat_to_annotation_ellipse(img_xml_info)
+        polyline_list = AnnotationConverter._cvat_to_annotation_polyline(img_xml_info)
+
+
+        annotation = Annotation(img_xml_info.attrib["name"], img_width, img_height, bb_list, polygon_list, ellipse_list, polyline_list)
         return annotation
 
     @staticmethod
