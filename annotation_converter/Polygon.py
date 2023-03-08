@@ -23,8 +23,8 @@ class Polygon:
 
     def set_polygon_points_as_array(self, points):
         for point in points:
-            self.points["x"].append(point[0][0])
-            self.points["y"].append(point[0][1])
+            self.points["x"].append(point[0])
+            self.points["y"].append(point[1])
 
     def set_polygon_points(self, points):
         self.points = points
