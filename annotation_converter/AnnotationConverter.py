@@ -97,9 +97,9 @@ class AnnotationConverter:
                 image = img
                 break
         if image == None:
-            image = ET.SubElement(root, "image", name="%s" % (ann.get_image_name()), id="0",
-                                  width="%s" % ann.get_img_width(),
-                                  height="%s" % ann.get_img_height())
+            image = ET.SubElement(root, "image", name="%s" % (annotation.get_image_name()), id="0",
+                                  width="%s" % annotation.get_img_width(),
+                                  height="%s" % annotation.get_img_height())
         labels = []
         image, labels = AnnotationConverter._write_polygon_cvat(image, annotation, labels)
         image, labels = AnnotationConverter._write_bb_cvat(image, annotation, labels)

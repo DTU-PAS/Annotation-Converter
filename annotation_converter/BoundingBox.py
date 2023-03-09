@@ -13,8 +13,14 @@ class BoundingBox:
     def get_x(self):
         return self.x
 
+    def set_x(self, x):
+        self.x = x
+
     def get_y(self):
         return self.y
+    
+    def set_y(self, y):
+        self.y = y
 
     def get_width(self):
         return self.width
@@ -25,6 +31,9 @@ class BoundingBox:
     def get_rotation(self):
         return self.rotation
 
+    def set_rotation(self, rotation):
+        self.rotation = rotation
+
     def get_label(self):
         return self.label
 
@@ -33,6 +42,12 @@ class BoundingBox:
 
     def get_xywh(self):
         return self.x, self.y, self.width, self.height
+    
+    def set_xywh(self, x, y, width, height):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
 
     # Assuming rotation is 0, ToDo: add rotation
     def get_lefttop_rightbottom(self):
