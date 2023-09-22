@@ -21,7 +21,7 @@ class AnnotationConverter:
             if label not in labels:
                 labels.append(label)
             ET.SubElement(image, "ellipse", label=label, cx=str(round(el.get_x())), cy=str(round(el.get_y())),
-                          rx=str(round(el.get_width)), ry=str(round(el.get_height())), occluded="0", z_order="1",
+                          rx=str(round(el.get_width())), ry=str(round(el.get_height())), occluded="0", z_order="1",
                           source="manual")
         return image, labels
     @staticmethod
